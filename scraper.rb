@@ -5,6 +5,7 @@ require 'scraperwiki'
 require 'nokogiri'
 require 'open-uri'
 require 'colorize'
+require 'wikidata'
 
 require 'pry'
 require 'open-uri/cached'
@@ -20,10 +21,34 @@ def noko_for(url)
   Nokogiri::HTML(open(url).read) 
 end
 
-def wikilink(node)
-  local = node.xpath('a[not(@class="new")]/@href').text
-  return if local.to_s.empty?
-  return URI.join('https://en.wikipedia.org/', local).to_s 
+def wikidata(node)
+  link = node.xpath('a[not(@class="new")]/@href').text
+  return {} if link.to_s.empty?
+
+  title = node.xpath('a/@title').text
+  wd = Wikidata::Item.find_by_title title
+
+  property = ->(elem, attr='title') { 
+    prop = wd.property(elem) or return
+    prop.send(attr)
+  }
+
+  fromtime = ->(time) { 
+    return unless time
+    DateTime.parse(time.time).to_date.to_s 
+  }
+
+  # party = P102
+  # freebase = P646
+  return { 
+    wikipedia: URI.join('https://en.wikipedia.org/', link).to_s,
+    wikidata: wd.id,
+    family_name: property.('P734'),
+    given_name: property.('P735'),
+    image: property.('P18', 'url'),
+    gender: property.('P21'),
+    birth_date: fromtime.(property.('P569', 'value')),
+  }
 end
 
 def scrape_list(url)
@@ -36,10 +61,9 @@ def scrape_list(url)
       candidate = tds[cols.find_index('Candidate')]
       data = { 
         name: candidate.text,
-        wikipedia: wikilink(candidate),
-      }
+      }.merge wikidata(candidate)
       puts data
-      ScraperWiki.save_sqlite([:name, :term], data)
+      ScraperWiki.save_sqlite([:name], data)
     end
   end
 end
