@@ -6,11 +6,12 @@ source "https://rubygems.org"
 
 ruby "2.0.0"
 
-gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git", branch: "morph_defaults"
-gem "execjs"
-gem "pry"
 gem "colorize"
+gem "mediawiki_api"
 gem "nokogiri"
 gem "open-uri-cached"
-gem "fuzzy_match"
-gem 'wikidata-client', '~> 0.0.7', require: 'wikidata'
+gem "pry"
+gem "rest-client"
+gem "sqlite_magic", :git => "https://github.com/openc/sqlite_magic.git"
+gem "scraperwiki", git: "https://github.com/openaustralia/scraperwiki-ruby.git", branch: "morph_defaults"
+gem "wikidata-fetcher", '>=0.6.1', git: "https://github.com/everypolitician/wikidata-fetcher.git"
