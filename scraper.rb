@@ -1,71 +1,53 @@
 #!/bin/env ruby
 # encoding: utf-8
 
+require 'rest-client'
 require 'scraperwiki'
+require 'wikidata/fetcher'
 require 'nokogiri'
-require 'open-uri'
 require 'colorize'
-require 'wikidata'
-
 require 'pry'
 require 'open-uri/cached'
 OpenURI::Cache.cache_path = '.cache'
 
-class String
-  def tidy
-    self.gsub(/[[:space:]]+/, ' ').strip
-  end
-end
-
 def noko_for(url)
-  Nokogiri::HTML(open(url).read) 
+  Nokogiri::HTML(open(URI.escape(URI.unescape(url))).read) 
 end
 
-def wikidata(node)
-  link = node.xpath('a[not(@class="new")]/@href').text
-  return {} if link.to_s.empty?
-
-  title = node.xpath('a/@title').text
-  wd = Wikidata::Item.find_by_title title
-
-  property = ->(elem, attr='title') { 
-    prop = wd.property(elem) or return
-    prop.send(attr)
-  }
-
-  fromtime = ->(time) { 
-    return unless time
-    DateTime.parse(time.time).to_date.to_s 
-  }
-
-  # party = P102
-  # freebase = P646
-  return { 
-    wikipedia: URI.join('https://en.wikipedia.org/', link).to_s,
-    wikidata: wd.id,
-    family_name: property.('P734'),
-    given_name: property.('P735'),
-    image: property.('P18', 'url'),
-    gender: property.('P21'),
-    birth_date: fromtime.(property.('P569', 'value')),
-  }
-end
-
-def scrape_list(url)
+def wikinames_from(url)
   noko = noko_for(url)
+
+  wikinames = []
   noko.xpath('.//table[.//th[contains(.,"Candidate")]]').each do |table|
     cols = table.xpath('.//tr[th]/th').map(&:text)
     table.xpath('.//tr[td]').each do |tr|
       tds = tr.css('td')
       next unless tds.last.text.include? 'Elected'
       candidate = tds[cols.find_index('Candidate')]
-      data = { 
-        name: candidate.text,
-      }.merge wikidata(candidate)
-      puts data
-      ScraperWiki.save_sqlite([:name], data)
+      wikiname = candidate.xpath('a[not(@class="new")]/@title').text
+      wikinames << wikiname unless wikiname.to_s.empty?
     end
+  end
+  raise "No names found in #{url}" if wikinames.count.zero?
+  return wikinames
+end
+
+def fetch_info(names)
+  WikiData.ids_from_pages('en', names).each do |name, id|
+    data = WikiData::Fetcher.new(id: id).data('en') rescue nil
+    unless data
+      warn "No data for #{p}"
+      next
+    end
+    data[:original_wikiname] = name
+    ScraperWiki.save_sqlite([:id], data)
   end
 end
 
-scrape_list('https://en.wikipedia.org/w/index.php?title=Niuean_general_election,_2014&oldid=605601691')
+fetch_info wikinames_from('https://en.wikipedia.org/wiki/Niuean_general_election,_2014')
+
+warn RestClient.post ENV['MORPH_REBUILDER_URL'], {} if ENV['MORPH_REBUILDER_URL']
+
+
+
+
