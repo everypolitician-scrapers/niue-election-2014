@@ -16,7 +16,6 @@ end
 
 def wikinames_from(url)
   noko = noko_for(url)
-
   wikinames = []
   noko.xpath('.//table[.//th[contains(.,"Candidate")]]').each do |table|
     cols = table.xpath('.//tr[th]/th').map(&:text)
@@ -32,21 +31,8 @@ def wikinames_from(url)
   return wikinames
 end
 
-def fetch_info(names)
-  WikiData.ids_from_pages('en', names).each do |name, id|
-    data = WikiData::Fetcher.new(id: id).data('en') rescue nil
-    unless data
-      warn "No data for #{p}"
-      next
-    end
-    data[:original_wikiname] = name
-    ScraperWiki.save_sqlite([:id], data)
-  end
-end
-
-fetch_info wikinames_from('https://en.wikipedia.org/wiki/Niuean_general_election,_2014')
-
-warn RestClient.post ENV['MORPH_REBUILDER_URL'], {} if ENV['MORPH_REBUILDER_URL']
+names = wikinames_from('https://en.wikipedia.org/wiki/Niuean_general_election,_2014')
+EveryPolitician::Wikidata.scrape_wikidata(names: { en: names })
 
 
 
