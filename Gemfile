@@ -17,6 +17,7 @@ gem 'nokogiri'
 gem 'open-uri-cached'
 gem 'pry'
 gem 'rest-client'
+gem 'scraped', github: 'everypolitician/scraped'
 gem 'scraperwiki', github: 'openaustralia/scraperwiki-ruby',
                    branch: 'morph_defaults'
 gem 'sqlite_magic', github: 'openc/sqlite_magic'
